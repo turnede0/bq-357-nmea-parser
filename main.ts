@@ -32,7 +32,7 @@ namespace bq357 {
     }
 
     // ────────────────────────────────────────────────
-    // Internal state
+    // State
     // ────────────────────────────────────────────────
     let _fixed = false
     let _utc = ""
@@ -51,26 +51,17 @@ namespace bq357 {
     let _moduleRxPin: SerialPin = null
 
     // ────────────────────────────────────────────────
-    // Public blocks
+    // Public API
     // ────────────────────────────────────────────────
 
-    /**
-     * Set the pins connected to the BQ-357 module.
-     * Must be called before log().
-     */
     //% block="initialize BQ-357 pins|TX %txPin|RX %rxPin"
     //% group="BQ-357 GPS/Beidou"
     export function initializePins(txPin: SerialPin, rxPin: SerialPin) {
         _moduleTxPin = txPin
         _moduleRxPin = rxPin
-        serial.redirectToUSB()  // ensure default output
+        serial.redirectToUSB()
     }
 
-    /**
-     * Read one complete cycle of NMEA sentences from the module,
-     * parse them, and store the raw text.
-     * Serial is switched back to USB automatically.
-     */
     //% block="log latest NMEA cycle from module"
     //% group="BQ-357 GPS/Beidou"
     export function log() {
@@ -80,37 +71,34 @@ namespace bq357 {
         }
 
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
-        basic.pause(50)
+        basic.pause(50)                     // let buffer stabilize
 
         let lines: string[] = []
-        let maxLines = 20
+        let maxLines = 25                   // enough for 1 full second + margin
 
-        // Clear satellite lists once per cycle
+        // Clear satellites once per capture
         _gpsSatellites = []
         _beidouSatellites = []
 
         for (let i = 0; i < maxLines; i++) {
-            let line = serial.readUntil("\n").trim()
-            // Replace startsWith with substr
-            if (line.length >= 6 && line.substr(0, 1) === "$") {
+            let raw = serial.readUntil("\n")
+            let line = raw.trim()
+            // Accept only plausible NMEA sentences
+            if (line.length >= 8 && line.substr(0, 1) === "$") {
                 lines.push(line)
             }
-            basic.pause(8)
+            basic.pause(5)                  // small delay to avoid overrun
         }
 
         _lastRawCycle = lines.join("\n")
         serial.redirectToUSB()
 
+        // Parse everything we collected
         for (let line of lines) {
-            if (line.length >= 8) {
-                parseSingleLine(line)
-            }
+            parseSingleLine(line)
         }
     }
 
-    /**
-     * Returns the most recent full raw NMEA cycle (multi-line string)
-     */
     //% block="last raw NMEA cycle (multi-line)"
     //% group="BQ-357 Debug"
     export function lastRawCycle(): string {
@@ -126,13 +114,13 @@ namespace bq357 {
     //% block="UTC time (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function utcTime(): string {
-        return _fixed && _utc.length > 0 ? _utc : "undefined"
+        return _fixed && _utc.length >= 6 ? _utc : "undefined"
     }
 
     //% block="latitude (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function latitude(): string {
-        if (!_fixed || _lat === 0) return "undefined"
+        if (!_fixed || _lat <= 0) return "undefined"
         let deg = Math.idiv(_lat | 0, 100)
         let min = _lat - deg * 100
         let minScaled = Math.round(min * 10000)
@@ -143,7 +131,7 @@ namespace bq357 {
     //% block="longitude (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function longitude(): string {
-        if (!_fixed || _lon === 0) return "undefined"
+        if (!_fixed || _lon <= 0) return "undefined"
         let deg = Math.idiv(_lon | 0, 100)
         let min = _lon - deg * 100
         let minScaled = Math.round(min * 10000)
@@ -170,7 +158,7 @@ namespace bq357 {
     }
 
     // ────────────────────────────────────────────────
-    // Core parsing function
+    // Parsing logic
     // ────────────────────────────────────────────────
     function parseSingleLine(line: string) {
         let fields = line.split(",")
@@ -178,29 +166,30 @@ namespace bq357 {
 
         let sentenceId = fields[0].substr(fields[0].length - 5)
 
-        // ── RMC ───────────────────────────────────────────────
+        // RMC – primary fix status & position
         if (sentenceId.substr(sentenceId.length - 3) === "RMC" && fields.length >= 10) {
             let status = fields[2] || "V"
             _fixed = (status === "A")
 
             if (_fixed) {
-                // Time (hhmmss)
-                if (fields[1] && fields[1].length >= 6) {
-                    _utc = fields[1].substr(0, 6)
-                }
+                // UTC time hhmmss
+                if (fields[1] && fields[1].length >= 6) _utc = fields[1].substr(0, 6)
+
                 // Latitude
                 let latStr = fields[3] || ""
                 if (latStr !== "") _lat = parseFloat(latStr)
                 _ns = fields[4] || ""
+
                 // Longitude
                 let lonStr = fields[5] || ""
                 if (lonStr !== "") _lon = parseFloat(lonStr)
                 _ew = fields[6] || ""
-                // Speed
+
+                // Speed over ground
                 let knots = parseFloat(fields[7] || "0")
                 _speedKmh = Math.round(knots * 1.852)
             } else {
-                // Reset when no fix
+                // Clear position data when no fix
                 _utc = ""
                 _lat = 0
                 _lon = 0
@@ -210,7 +199,7 @@ namespace bq357 {
             }
         }
 
-        // ── GSV ───────────────────────────────────────────────
+        // GSV – satellites in view (accumulate all)
         if (sentenceId.substr(sentenceId.length - 3) === "GSV" && fields.length >= 8) {
             let system: string = null
             if (fields[0].includes("GP")) system = "GPS"
