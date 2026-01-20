@@ -1,42 +1,40 @@
 //% color="#006400" weight=85 icon="\uf124"
-//% groups="["GNSS", "Output", "Satellites"]"
+//% groups='["GNSS", "Output", "Satellites"]'
 namespace bq357 {
 
     let isGnssSerial = false;
     let lastGGA: string = "";
     let lastRMC: string = "";
     let lastVTG: string = "";
-
-    interface Satellite {
-        id: number;
-        elevation: number;   // °
-        azimuth: number;     // °
-        snr: number;         // dB-Hz
-    }
-
     let gpsSatellites: Satellite[] = [];
     let bdsSatellites: Satellite[] = [];
 
-    // Clean old data when no recent sentences
+    interface Satellite {
+        id: number;
+        elevation: number;
+        azimuth: number;
+        snr: number;
+    }
+
     let lastValidFixMs = 0;
 
+    // -------------------------------------------------------------------------
+    // Serial control
+    // -------------------------------------------------------------------------
+
     /**
-     * Redirect serial pins to GNSS module (P0=RX, P1=TX, 9600 baud default)
+     * Redirect serial to GNSS module (P0 = RX ← module TX, P1 = TX → module RX)
      */
     //% block="use GNSS serial pins P0 RX P1 TX baud $baud"
     //% group="GNSS" weight=100
     export function useGnssSerial(baud: number = 9600): void {
-        serial.redirect(
-            SerialPin.P0,   // micro:bit RX ← module TX
-            SerialPin.P1,   // micro:bit TX → module RX
-            BaudRate.BaudRate9600   // change if you used PCAS01 command
-        );
+        serial.redirect(SerialPin.P0, SerialPin.P1, baud);
         isGnssSerial = true;
-        basic.pause(50); // stabilize
+        basic.pause(50);
     }
 
     /**
-     * Redirect serial back to USB for console output
+     * Redirect serial back to USB console
      */
     //% block="use USB serial for console output"
     //% group="Output" weight=90
@@ -47,8 +45,7 @@ namespace bq357 {
     }
 
     /**
-     * Read one line from GNSS and parse it if valid NMEA
-     * Call this frequently in a loop
+     * Read one line from GNSS and parse if valid NMEA
      */
     //% block="read and parse one NMEA line from GNSS"
     //% group="GNSS" weight=80
@@ -61,10 +58,9 @@ namespace bq357 {
         let parts = line.split(",");
         if (parts.length < 3) return;
 
-        let talker = parts[0].substr(1, 2); // GP / GN / BD ...
+        let talker = parts[0].substr(1, 2);
         let sentence = parts[0].substr(3, 3);
 
-        // Keep last relevant sentences
         if (sentence === "GGA") lastGGA = line;
         else if (sentence === "RMC") lastRMC = line;
         else if (sentence === "VTG") lastVTG = line;
@@ -74,15 +70,11 @@ namespace bq357 {
 
         // Update fix timeout
         if (sentence === "GGA" || sentence === "RMC") {
-            if (parts.length > 6 && parts[6] === "1" || parts[2] === "A") {
+            if ((parts.length > 6 && parts[6] === "1") || (parts.length > 2 && parts[2] === "A")) {
                 lastValidFixMs = control.millis();
             }
         }
     }
-
-    // -----------------------------------------------------------------------------
-    // Updated parseGSV function
-    // -----------------------------------------------------------------------------
 
     function parseGSV(line: string): void {
         let parts = line.split(",");
@@ -92,6 +84,8 @@ namespace bq357 {
         let isBDS = (talker === "BD" || talker === "GB");
 
         let idx = 4;
+        let satellites = isBDS ? bdsSatellites : gpsSatellites;
+
         while (idx + 3 < parts.length) {
             let idRaw = parts[idx++];
             let elvRaw = parts[idx++];
@@ -108,9 +102,6 @@ namespace bq357 {
             if (id > 0 && snr > 0) {
                 let sat: Satellite = { id: id, elevation: elv, azimuth: az, snr: snr };
 
-                let satellites = isBDS ? bdsSatellites : gpsSatellites;
-
-                // Manual search for existing satellite by ID
                 let pos = -1;
                 for (let i = 0; i < satellites.length; i++) {
                     if (satellites[i].id === id) {
@@ -120,22 +111,25 @@ namespace bq357 {
                 }
 
                 if (pos >= 0) {
-                    satellites[pos] = sat;   // update
+                    satellites[pos] = sat;
                 } else {
-                    satellites.push(sat);    // append
+                    satellites.push(sat);
                 }
             }
         }
 
-  
+        // Prevent unbounded growth
+        if (satellites.length > 32) {
+            satellites = satellites.slice(-28);
+        }
     }
 
-    // ────────────────────────────────────────────────
-    // Getters
-    // ────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
+    // Status & basic getters (return string)
+    // -------------------------------------------------------------------------
 
     /**
-     * Returns "outdoor" if recent 3D fix or good satellite view, else "indoor"
+     * Current GNSS status: "outdoor" or "indoor"
      */
     //% block="GNSS status"
     //% group="GNSS" weight=70
@@ -143,22 +137,22 @@ namespace bq357 {
         let age = control.millis() - lastValidFixMs;
         if (age > 8000) return "indoor";
 
-        let nGGA = extractField(lastGGA, 6);
-        if (nGGA === "1" || nGGA === "2") return "outdoor";
+        let fixGGA = extractField(lastGGA, 6);
+        if (fixGGA === "1" || fixGGA === "2") return "outdoor";
 
         let fixRMC = extractField(lastRMC, 2);
         if (fixRMC === "A") return "outdoor";
 
-        // fallback: satellite count + signal quality
         let total = gpsSatellites.length + bdsSatellites.length;
-        let good = gpsSatellites.filter(s => s.snr >= 30).length +
-            bdsSatellites.filter(s => s.snr >= 30).length;
+        let good = 0;
+        for (let s of gpsSatellites) if (s.snr >= 30) good++;
+        for (let s of bdsSatellites) if (s.snr >= 30) good++;
 
         return (total >= 6 && good >= 4) ? "outdoor" : "indoor";
     }
 
     /**
-     * UTC time HH:MM:SS from GGA or RMC (empty if no fix)
+     * UTC time in format HH:MM:SS (empty string if no fix)
      */
     //% block="UTC time"
     //% group="GNSS"
@@ -168,114 +162,124 @@ namespace bq357 {
         let hh = t.substr(0, 2);
         let mm = t.substr(2, 2);
         let ss = t.substr(4, 2);
-        return `${hh}:${mm}:${ss}`;
+        return hh + ":" + mm + ":" + ss;
     }
 
     /**
-     * Latitude in decimal degrees (positive = N, negative = S)
+     * Latitude in decimal degrees with 6 decimal places (or "(no fix)")
      */
-    //% block="latitude (decimal degrees)"
+    //% block="latitude"
     //% group="GNSS"
-    export function latitude(): number {
-        if (status() !== "outdoor") return -999;
+    export function latitude(): string {
+        if (status() !== "outdoor") return "(no fix)";
+
         let raw = extractField(lastGGA, 2) || extractField(lastRMC, 3);
-        if (!raw || raw.length < 4) return -999;
+        if (!raw || raw.length < 4) return "(no fix)";
+
         let deg = parseInt(raw.substr(0, 2));
         let min = parseFloat(raw.substr(2));
         let dec = deg + min / 60;
-        return extractField(lastGGA, 3) === "S" ? -dec : dec;
+
+        let ns = extractField(lastGGA, 3) || extractField(lastRMC, 4);
+        if (ns === "S") dec = -dec;
+
+        // Use Math.round for 6 decimals to avoid .toFixed error
+        return "" + (Math.round(dec * 1000000) / 1000000);
     }
 
     /**
-     * Longitude in decimal degrees (positive = E, negative = W)
+     * Longitude in decimal degrees with 6 decimal places (or "(no fix)")
      */
-    //% block="longitude (decimal degrees)"
+    //% block="longitude"
     //% group="GNSS"
-    export function longitude(): number {
-        if (status() !== "outdoor") return -999;
+    export function longitude(): string {
+        if (status() !== "outdoor") return "(no fix)";
+
         let raw = extractField(lastGGA, 4) || extractField(lastRMC, 5);
-        if (!raw || raw.length < 5) return -999;
+        if (!raw || raw.length < 5) return "(no fix)";
+
         let deg = parseInt(raw.substr(0, 3));
         let min = parseFloat(raw.substr(3));
         let dec = deg + min / 60;
-        return extractField(lastGGA, 5) === "W" ? -dec : dec;
+
+        let ew = extractField(lastGGA, 5) || extractField(lastRMC, 6);
+        if (ew === "W") dec = -dec;
+
+        // Use Math.round for 6 decimals to avoid .toFixed error
+        return "" + (Math.round(dec * 1000000) / 1000000);
     }
 
     /**
-     * Ground speed in km/h (from VTG or RMC)
+     * Ground speed in km/h with 1 decimal place (or "(no fix)")
      */
-    //% block="speed km/h"
+    //% block="speed (km/h)"
     //% group="GNSS"
-    export function speedKmh(): number {
-        if (status() !== "outdoor") return -999;
-        let vtg = extractField(lastVTG, 7); // km/h field
-        if (vtg && vtg !== "") return parseFloat(vtg);
-        let rmc = extractField(lastRMC, 7); // knots
-        if (rmc && rmc !== "") return parseFloat(rmc) * 1.852;
-        return -999;
+    export function speedKmh(): string {
+        if (status() !== "outdoor") return "(no fix)";
+
+        let vtg = extractField(lastVTG, 7);     // km/h
+        if (vtg && vtg !== "") {
+            let v = parseFloat(vtg);
+            // Use Math.round for 1 decimal to avoid .toFixed error
+            return "" + (Math.round(v * 10) / 10);
+        }
+
+        let rmc = extractField(lastRMC, 7);     // knots
+        if (rmc && rmc !== "") {
+            let v = parseFloat(rmc) * 1.852;
+            // Use Math.round for 1 decimal to avoid .toFixed error
+            return "" + (Math.round(v * 10) / 10);
+        }
+
+        return "(no fix)";
     }
 
-    // ────────────────────────────────────────────────
-    // Satellite lists (read-only views)
-    // ────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
+    // Satellite information
+    // -------------------------------------------------------------------------
 
-    /**
-     * Number of detected GPS satellites
-     */
     //% block="number of GPS satellites"
     //% group="Satellites"
     export function gpsSatelliteCount(): number {
         return gpsSatellites.length;
     }
 
-    /**
-     * GPS satellite info at index (0-based)
-     */
-    //% block="GPS satellite $index azimuth ° elevation ° SNR dB"
+    //% block="GPS satellite at $index"
     //% group="Satellites"
     export function gpsSatelliteInfo(index: number): string {
         if (index < 0 || index >= gpsSatellites.length) return "—";
         let s = gpsSatellites[index];
-        return `ID${s.id} Az${s.azimuth}° El${s.elevation}° ${s.snr}dB`;
+        return "ID" + s.id + "  el:" + s.elevation + "°  az:" + s.azimuth + "°  " + s.snr + " dB";
     }
 
-    /**
-     * Number of detected BeiDou satellites
-     */
     //% block="number of BeiDou satellites"
     //% group="Satellites"
     export function bdsSatelliteCount(): number {
         return bdsSatellites.length;
     }
 
-    /**
-     * BeiDou satellite info at index (0-based)
-     */
-    //% block="BeiDou satellite $index azimuth ° elevation ° SNR dB"
+    //% block="BeiDou satellite at $index"
     //% group="Satellites"
     export function bdsSatelliteInfo(index: number): string {
         if (index < 0 || index >= bdsSatellites.length) return "—";
         let s = bdsSatellites[index];
-        return `ID${s.id} Az${s.azimuth}° El${s.elevation}° ${s.snr}dB`;
+        return "ID" + s.id + "  el:" + s.elevation + "°  az:" + s.azimuth + "°  " + s.snr + " dB";
     }
 
-    // ────────────────────────────────────────────────
-    // Helper
-    // ────────────────────────────────────────────────
-
-    function extractField(sentence: string, idx: number): string {
-        if (!sentence) return "";
-        let p = sentence.split(",");
-        return (idx < p.length) ? p[idx] : "";
-    }
-
-    /**
-     * Clear satellite lists (call when changing location / debug)
-     */
     //% block="clear satellite lists"
     //% group="GNSS" advanced=true
     export function clearSatellites(): void {
         gpsSatellites = [];
         bdsSatellites = [];
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    function extractField(sentence: string, idx: number): string {
+        if (!sentence) return "";
+        let p = sentence.split(",");
+        return idx < p.length ? p[idx] : "";
     }
 }
