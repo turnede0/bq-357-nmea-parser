@@ -32,7 +32,7 @@ namespace bq357 {
     }
 
     // ────────────────────────────────────────────────
-    // State variables
+    // Internal state
     // ────────────────────────────────────────────────
     let _fixed = false
     let _utc = ""
@@ -46,28 +46,32 @@ namespace bq357 {
     let _beidouSatellites: Satellite[] = []
 
     let _lastRawCycle: string = ""
-    let _cycleLines: string[] = []
 
     let _moduleTxPin: SerialPin = null
     let _moduleRxPin: SerialPin = null
 
+    // ────────────────────────────────────────────────
+    // Public blocks
+    // ────────────────────────────────────────────────
+
     /**
-     * Initializes the module pins (must be called before log())
-     * @param txPin micro:bit pin connected to module TX
-     * @param rxPin micro:bit pin connected to module RX
+     * Set the pins connected to the BQ-357 module.
+     * Must be called before log().
      */
     //% block="initialize BQ-357 pins|TX %txPin|RX %rxPin"
     //% group="BQ-357 GPS/Beidou"
     export function initializePins(txPin: SerialPin, rxPin: SerialPin) {
         _moduleTxPin = txPin
         _moduleRxPin = rxPin
+        serial.redirectToUSB()  // ensure default output
     }
 
     /**
-     * Captures one complete NMEA cycle (from one GGA to just before the next GGA)
-     * and parses all sentences in it. Serial is returned to USB afterwards.
+     * Read one complete cycle of NMEA sentences from the module,
+     * parse them, and store the raw text.
+     * Serial is switched back to USB automatically.
      */
-    //% block="log latest complete NMEA cycle"
+    //% block="log latest NMEA cycle from module"
     //% group="BQ-357 GPS/Beidou"
     export function log() {
         if (!_moduleTxPin || !_moduleRxPin) {
@@ -76,32 +80,28 @@ namespace bq357 {
         }
 
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
+        basic.pause(50)
 
-        _cycleLines = []
-        let maxLines = 25
-        let lineCount = 0
-        let seenGGA = false
+        let lines: string[] = []
+        let maxLines = 20
 
-        while (lineCount < maxLines) {
+        // Clear satellite lists once per cycle
+        _gpsSatellites = []
+        _beidouSatellites = []
+
+        for (let i = 0; i < maxLines; i++) {
             let line = serial.readUntil("\n").trim()
-            if (line.length < 6) continue
-
-            _cycleLines.push(line)
-            lineCount++
-
-            if (line.includes("$GNGGA") || line.includes("$GPGGA")) {
-                if (seenGGA) {
-                    _cycleLines.pop()
-                    break
-                }
-                seenGGA = true
+            // Replace startsWith with substr
+            if (line.length >= 6 && line.substr(0, 1) === "$") {
+                lines.push(line)
             }
+            basic.pause(8)
         }
 
-        _lastRawCycle = _cycleLines.join("\n")
+        _lastRawCycle = lines.join("\n")
         serial.redirectToUSB()
 
-        for (let line of _cycleLines) {
+        for (let line of lines) {
             if (line.length >= 8) {
                 parseSingleLine(line)
             }
@@ -109,17 +109,13 @@ namespace bq357 {
     }
 
     /**
-     * Returns the last complete raw NMEA cycle captured (multi-line string)
+     * Returns the most recent full raw NMEA cycle (multi-line string)
      */
     //% block="last raw NMEA cycle (multi-line)"
     //% group="BQ-357 Debug"
     export function lastRawCycle(): string {
         return _lastRawCycle || "(no cycle captured yet)"
     }
-
-    // ────────────────────────────────────────────────
-    // Data getters
-    // ────────────────────────────────────────────────
 
     //% block="BQ-357 module status"
     //% group="BQ-357 GPS/Beidou"
@@ -130,13 +126,13 @@ namespace bq357 {
     //% block="UTC time (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function utcTime(): string {
-        return _fixed ? _utc : "undefined"
+        return _fixed && _utc.length > 0 ? _utc : "undefined"
     }
 
     //% block="latitude (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function latitude(): string {
-        if (!_fixed) return "undefined"
+        if (!_fixed || _lat === 0) return "undefined"
         let deg = Math.idiv(_lat | 0, 100)
         let min = _lat - deg * 100
         let minScaled = Math.round(min * 10000)
@@ -147,7 +143,7 @@ namespace bq357 {
     //% block="longitude (undefined when indoor)"
     //% group="BQ-357 GPS/Beidou"
     export function longitude(): string {
-        if (!_fixed) return "undefined"
+        if (!_fixed || _lon === 0) return "undefined"
         let deg = Math.idiv(_lon | 0, 100)
         let min = _lon - deg * 100
         let minScaled = Math.round(min * 10000)
@@ -174,7 +170,7 @@ namespace bq357 {
     }
 
     // ────────────────────────────────────────────────
-    // Single-line parsing logic
+    // Core parsing function
     // ────────────────────────────────────────────────
     function parseSingleLine(line: string) {
         let fields = line.split(",")
@@ -182,53 +178,67 @@ namespace bq357 {
 
         let sentenceId = fields[0].substr(fields[0].length - 5)
 
-        // RMC sentence
+        // ── RMC ───────────────────────────────────────────────
         if (sentenceId.substr(sentenceId.length - 3) === "RMC" && fields.length >= 10) {
-            if (fields[2] === "A") {
-                _fixed = true
-                _utc = fields[1].substr(0, 6)
-                _lat = parseFloat(fields[3] || "0")
+            let status = fields[2] || "V"
+            _fixed = (status === "A")
+
+            if (_fixed) {
+                // Time (hhmmss)
+                if (fields[1] && fields[1].length >= 6) {
+                    _utc = fields[1].substr(0, 6)
+                }
+                // Latitude
+                let latStr = fields[3] || ""
+                if (latStr !== "") _lat = parseFloat(latStr)
                 _ns = fields[4] || ""
-                _lon = parseFloat(fields[5] || "0")
+                // Longitude
+                let lonStr = fields[5] || ""
+                if (lonStr !== "") _lon = parseFloat(lonStr)
                 _ew = fields[6] || ""
+                // Speed
                 let knots = parseFloat(fields[7] || "0")
                 _speedKmh = Math.round(knots * 1.852)
             } else {
-                _fixed = false
+                // Reset when no fix
+                _utc = ""
+                _lat = 0
+                _lon = 0
+                _ns = ""
+                _ew = ""
+                _speedKmh = 0
             }
         }
 
-        // GSV sentence
+        // ── GSV ───────────────────────────────────────────────
         if (sentenceId.substr(sentenceId.length - 3) === "GSV" && fields.length >= 8) {
             let system: string = null
             if (fields[0].includes("GP")) system = "GPS"
             else if (fields[0].includes("BD") || fields[0].includes("GB")) system = "Beidou"
 
             if (system) {
-                parseGSV(fields, system)
+                let target = system === "GPS" ? _gpsSatellites : _beidouSatellites
+
+                let i = 4
+                while (i + 3 < fields.length) {
+                    let prnStr = fields[i] || ""
+                    let elevStr = fields[i + 1] || ""
+                    let azStr = fields[i + 2] || ""
+                    let snrStr = fields[i + 3] || ""
+
+                    if (prnStr !== "") {
+                        let prn = parseInt(prnStr)
+                        let elev = elevStr !== "" ? parseInt(elevStr) : 0
+                        let az = azStr !== "" ? parseInt(azStr) : 0
+                        let snr = snrStr !== "" ? parseInt(snrStr) : 0
+
+                        if (prn > 0) {
+                            target.push(new Satellite(system, prn, elev, az, snr))
+                        }
+                    }
+                    i += 4
+                }
             }
-        }
-    }
-
-    function parseGSV(fields: string[], system: string) {
-        let msgNum = parseInt(fields[2] || "0")
-        let target = system === "GPS" ? _gpsSatellites : _beidouSatellites
-
-        if (msgNum === 1) {
-            target.length = 0
-        }
-
-        let i = 4
-        while (i + 3 < fields.length) {
-            let prn = parseInt(fields[i] || "0")
-            let elev = parseInt(fields[i + 1] || "0")
-            let az = parseInt(fields[i + 2] || "0")
-            let snr = parseInt(fields[i + 3] || "0")
-
-            if (prn > 0) {
-                target.push(new Satellite(system, prn, elev, az, snr))
-            }
-            i += 4
         }
     }
 }
