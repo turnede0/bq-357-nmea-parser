@@ -56,10 +56,6 @@ namespace bq357 {
 
         let line = serial.readLine();
 
-        if (line && line.length > 0) {
-            serial.writeLine("RAW LEN=" + line.length + " → [" + line + "]");
-        }
-
         if (!line || line.length < 8 || line.charAt(0) !== "$") return;
 
         let parts = line.split(",");
