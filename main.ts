@@ -37,9 +37,9 @@ namespace bq357 {
 
         // Optional: also expose type as a property block (useful for debugging)
         //% blockCombine
-        get Type(): string {
-            return this.type;
-        }
+        // get Type(): string {
+        //     return this.type;
+        // }
     }
 
     let _fixed = false
