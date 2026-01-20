@@ -14,6 +14,32 @@ namespace bq357 {
             public azimuth: number,    // Azimuth in degrees
             public snr: number         // Signal-to-noise ratio in dBHz
         ) { }
+
+        //% blockCombine
+        get PRN(): number {
+            return this.prn;
+        }
+
+        //% blockCombine
+        get elevation(): number {
+            return this.elevation;
+        }
+
+        //% blockCombine
+        get azimuth(): number {
+            return this.azimuth;
+        }
+
+        //% blockCombine
+        get SNR(): number {
+            return this.snr;
+        }
+
+        // Optional: also expose type as a property block (useful for debugging)
+        //% blockCombine
+        get type(): string {
+            return this.type;
+        }
     }
 
     let _fixed = false
