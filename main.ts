@@ -59,6 +59,7 @@ namespace bq357 {
     export function initializePins(txPin: SerialPin, rxPin: SerialPin) {
         _moduleTxPin = txPin
         _moduleRxPin = rxPin
+        serial.setRxBufferSize(512)
         serial.redirectToUSB()
     }
 
@@ -70,30 +71,35 @@ namespace bq357 {
             return
         }
 
+        // Important: increase buffer size to avoid data loss
+        serial.setRxBufferSize(512)
+
+        // Flush any old data before capture
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
-        basic.pause(50)                     // let buffer stabilize
+        serial.readUntil("\n")  // discard junk
+        basic.pause(500)        // give module time to settle
 
         let lines: string[] = []
-        let maxLines = 25                   // enough for 1 full second + margin
+        let maxLines = 30       // increased to safely capture 1+ second burst
 
-        // Clear satellites once per capture
+        // Clear satellite lists at the start of a new capture
         _gpsSatellites = []
         _beidouSatellites = []
 
         for (let i = 0; i < maxLines; i++) {
             let raw = serial.readUntil("\n")
             let line = raw.trim()
-            // Accept only plausible NMEA sentences
-            if (line.length >= 8 && line.substr(0, 1) === "$") {
+            // Accept only valid-looking NMEA sentences
+            if (line.length >= 10 && line.substr(0, 1) === "$") {
                 lines.push(line)
             }
-            basic.pause(5)                  // small delay to avoid overrun
+            basic.pause(500)  // critical: give time for next sentence to arrive
         }
 
         _lastRawCycle = lines.join("\n")
         serial.redirectToUSB()
 
-        // Parse everything we collected
+        // Parse all captured lines
         for (let line of lines) {
             parseSingleLine(line)
         }
