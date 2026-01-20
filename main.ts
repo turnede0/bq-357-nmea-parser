@@ -77,7 +77,7 @@ namespace bq357 {
         // Flush any old data before capture
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
         serial.readUntil("\n")  // discard junk
-        basic.pause(500)        // give module time to settle
+        basic.pause(100)        // give module time to settle
 
         let lines: string[] = []
         let maxLines = 30       // increased to safely capture 1+ second burst
@@ -93,7 +93,7 @@ namespace bq357 {
             if (line.length >= 10 && line.substr(0, 1) === "$") {
                 lines.push(line)
             }
-            basic.pause(500)  // critical: give time for next sentence to arrive
+            basic.pause(100)  // critical: give time for next sentence to arrive
         }
 
         _lastRawCycle = lines.join("\n")
