@@ -21,12 +21,12 @@ namespace bq357 {
         }
 
         //% blockCombine
-        get elevation(): number {
+        get Elevation(): number {
             return this.elevation;
         }
 
         //% blockCombine
-        get azimuth(): number {
+        get Azimuth(): number {
             return this.azimuth;
         }
 
@@ -37,7 +37,7 @@ namespace bq357 {
 
         // Optional: also expose type as a property block (useful for debugging)
         //% blockCombine
-        get type(): string {
+        get Type(): string {
             return this.type;
         }
     }
