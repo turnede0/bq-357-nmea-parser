@@ -23,7 +23,9 @@ namespace bq357 {
     let _lon = 0
     let _ew = ""
     let _speedKmh = 0
-    let _satellites: Satellite[] = []
+
+    let _gpsSatellites: Satellite[] = []
+    let _beidouSatellites: Satellite[] = []
 
     /**
      * Returns whether the module has a valid 3D fix (outdoor/position available)
@@ -56,7 +58,6 @@ namespace bq357 {
         let deg = Math.idiv(_lat | 0, 100)
         let min = _lat - deg * 100
 
-        // Avoid toFixed() - use manual formatting for MakeCode compatibility
         let minScaled = Math.round(min * 10000)
         let minStr = (minScaled / 10000).toString()
 
@@ -92,14 +93,23 @@ namespace bq357 {
     }
 
     /**
-     * Returns the current list of visible satellites (GPS + Beidou)  
-     * Each item contains: type, PRN, elevation, azimuth, SNR  
-     * The returned array can be used in loops and other blocks
+     * Returns the current list of visible **GPS** satellites  
+     * Each item contains: PRN, elevation, azimuth, SNR
      */
-    //% block="list of visible satellites"
+    //% block="list of visible GPS satellites"
     //% group="BQ-357 GPS/Beidou"
-    export function satellites(): Satellite[] {
-        return _satellites
+    export function gpsSatellites(): Satellite[] {
+        return _gpsSatellites
+    }
+
+    /**
+     * Returns the current list of visible **Beidou** satellites  
+     * Each item contains: PRN, elevation, azimuth, SNR
+     */
+    //% block="list of visible Beidou satellites"
+    //% group="BQ-357 GPS/Beidou"
+    export function beidouSatellites(): Satellite[] {
+        return _beidouSatellites
     }
 
     /**
@@ -123,16 +133,21 @@ namespace bq357 {
         )
 
         serial.setRxBufferSize(200)
-        // Clear any old data
-        serial.readUntil("\n")
+        serial.readUntil("\n")  // clear buffer
+
         serial.onDataReceived("\n", function () {
             let line = serial.readUntil("\n").trim()
             if (line.length < 10) return
 
             let fields: string[] = line.split(",")
+            if (fields.length < 4) return
 
-            // Parse RMC sentence for fix status, position, time & speed
-            if (fields.length >= 10 && fields[0].substr(fields[0].length - 3) === "RMC") {
+            let talkerAndType = fields[0].substr(fields[0].length - 5)
+
+            // ────────────────────────────────────────────────
+            // Parse RMC for position, time, speed, fix status
+            // ────────────────────────────────────────────────
+            if (talkerAndType.substr(talkerAndType.length - 3) === "RMC" && fields.length >= 10) {
                 if (fields[2] === "A") {
                     _fixed = true
                     _utc = fields[1].substr(0, 6)           // hhmmss
@@ -141,36 +156,39 @@ namespace bq357 {
                     _lon = parseFloat(fields[5] || "0")
                     _ew = fields[6] || ""
                     let knots = parseFloat(fields[7] || "0")
-                    _speedKmh = Math.round(knots * 1.852)   // knots → km/h
+                    _speedKmh = Math.round(knots * 1.852)
                 } else {
                     _fixed = false
                 }
             }
 
-            // Parse GPS satellites (GPGSV)
-            if (fields.length >= 8 && fields[0].substr(fields[0].length - 3) === "GSV" && fields[0].includes("GP")) {
-                parseGSV(fields, "GPS")
-            }
+            // ────────────────────────────────────────────────
+            // Parse GSV sentences
+            // ────────────────────────────────────────────────
+            if (talkerAndType.substr(talkerAndType.length - 3) === "GSV" && fields.length >= 8) {
+                let system: string = null
 
-            // Parse Beidou satellites (BDGSV or sometimes GBGSV)
-            if (fields.length >= 8 && fields[0].substr(fields[0].length - 3) === "GSV" &&
-                (fields[0].includes("BD") || fields[0].includes("GB"))) {
-                parseGSV(fields, "Beidou")
+                if (fields[0].includes("GP")) {
+                    system = "GPS"
+                } else if (fields[0].includes("BD") || fields[0].includes("GB")) {
+                    system = "Beidou"
+                }
+
+                if (system) {
+                    parseGSV(fields, system)
+                }
             }
         })
- 
     }
 
-    // Internal helper - parses one GSV sentence (GPGSV or BDGSV)
+    // Internal helper - parses one GSV sentence and stores in the correct array
     function parseGSV(fields: string[], system: string) {
-        if (fields.length < 8) return
-
         let msgNum = parseInt(fields[2])
-        let totalMsgs = parseInt(fields[1])
+        let targetArray = system === "GPS" ? _gpsSatellites : _beidouSatellites
 
-        // Only keep satellites from the current system (clear old ones on first message)
+        // Clear old satellites of this system only on the first message
         if (msgNum === 1) {
-            _satellites = _satellites.filter(s => s.type !== system)
+            targetArray.length = 0
         }
 
         let i = 4
@@ -187,7 +205,7 @@ namespace bq357 {
                 let snr = parseInt(snrStr || "0")
 
                 if (prn > 0) {
-                    _satellites.push(new Satellite(system, prn, elev, azim, snr))
+                    targetArray.push(new Satellite(system, prn, elev, azim, snr))
                 }
             }
             i += 4
