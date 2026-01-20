@@ -28,7 +28,7 @@ namespace bq357 {
         get SNR(): number { return this.snr; }
 
         //% blockCombine
-        get TypeAsString(): string { return this.type; }
+        get Type(): string { return this.type; }
     }
 
     // ────────────────────────────────────────────────
@@ -45,7 +45,8 @@ namespace bq357 {
     let _gpsSatellites: Satellite[] = []
     let _beidouSatellites: Satellite[] = []
 
-    let _lastRawLine: string = ""
+    let _lastRawCycle: string = ""
+    let _cycleLines: string[] = []
 
     let _moduleTxPin: SerialPin = null
     let _moduleRxPin: SerialPin = null
@@ -63,11 +64,10 @@ namespace bq357 {
     }
 
     /**
-     * Reads one latest NMEA sentence from the module, parses it,
-     * and stores the raw string + parsed data.
-     * Serial is automatically switched back to USB after reading.
+     * Captures one complete NMEA cycle (from one GGA to just before the next GGA)
+     * and parses all sentences in it. Serial is returned to USB afterwards.
      */
-    //% block="log latest NMEA from module"
+    //% block="log latest complete NMEA cycle"
     //% group="BQ-357 GPS/Beidou"
     export function log() {
         if (!_moduleTxPin || !_moduleRxPin) {
@@ -75,32 +75,50 @@ namespace bq357 {
             return
         }
 
-        // 1. Switch to module
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
 
-        // 2. Read exactly one line (latest available)
-        _lastRawLine = serial.readUntil("\n").trim()
+        _cycleLines = []
+        let maxLines = 25
+        let lineCount = 0
+        let seenGGA = false
 
-        // 3. Immediately switch back to USB
+        while (lineCount < maxLines) {
+            let line = serial.readUntil("\n").trim()
+            if (line.length < 6) continue
+
+            _cycleLines.push(line)
+            lineCount++
+
+            if (line.includes("$GNGGA") || line.includes("$GPGGA")) {
+                if (seenGGA) {
+                    _cycleLines.pop()
+                    break
+                }
+                seenGGA = true
+            }
+        }
+
+        _lastRawCycle = _cycleLines.join("\n")
         serial.redirectToUSB()
 
-        // 4. Parse the captured line (if valid)
-        if (_lastRawLine.length >= 8) {
-            parseSingleLine(_lastRawLine)
+        for (let line of _cycleLines) {
+            if (line.length >= 8) {
+                parseSingleLine(line)
+            }
         }
     }
 
     /**
-     * Returns the most recent raw NMEA sentence captured by log()
+     * Returns the last complete raw NMEA cycle captured (multi-line string)
      */
-    //% block="last raw NMEA sentence"
+    //% block="last raw NMEA cycle (multi-line)"
     //% group="BQ-357 Debug"
-    export function lastRawSentence(): string {
-        return _lastRawLine || "(no data yet)"
+    export function lastRawCycle(): string {
+        return _lastRawCycle || "(no cycle captured yet)"
     }
 
     // ────────────────────────────────────────────────
-    // Data getters (same as before)
+    // Data getters
     // ────────────────────────────────────────────────
 
     //% block="BQ-357 module status"
@@ -196,7 +214,6 @@ namespace bq357 {
         let msgNum = parseInt(fields[2] || "0")
         let target = system === "GPS" ? _gpsSatellites : _beidouSatellites
 
-        // Clear list only on first message of a GSV sequence
         if (msgNum === 1) {
             target.length = 0
         }
