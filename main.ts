@@ -59,7 +59,6 @@ namespace bq357 {
     export function initializePins(txPin: SerialPin, rxPin: SerialPin) {
         _moduleTxPin = txPin
         _moduleRxPin = rxPin
-        serial.setRxBufferSize(512)
         serial.redirectToUSB()
     }
 
@@ -71,35 +70,51 @@ namespace bq357 {
             return
         }
 
-        // Important: increase buffer size to avoid data loss
         serial.setRxBufferSize(512)
 
-        // Flush any old data before capture
         serial.redirect(_moduleTxPin, _moduleRxPin, BaudRate.BaudRate9600)
-        serial.readUntil("\n")  // discard junk
-        basic.pause(100)        // give module time to settle
+
+        // Aggressive flush: read and discard until no more data for 200 ms
+        let flushed = 0
+        while (true) {
+            let junk = serial.readUntil("\n")
+            if (junk.length === 0) break
+            flushed++
+            if (flushed > 50) break
+            basic.pause(5)
+        }
+        basic.pause(100)
 
         let lines: string[] = []
-        let maxLines = 30       // increased to safely capture 1+ second burst
+        let maxLines = 35
+        let debugRaw: string[] = []  // temporary debug
 
-        // Clear satellite lists at the start of a new capture
         _gpsSatellites = []
         _beidouSatellites = []
 
         for (let i = 0; i < maxLines; i++) {
             let raw = serial.readUntil("\n")
             let line = raw.trim()
-            // Accept only valid-looking NMEA sentences
-            if (line.length >= 10 && line.substr(0, 1) === "$") {
+
+            debugRaw.push("[" + i + "] raw len=" + raw.length + " trimmed len=" + line.length)
+
+            if (line.length >= 6 && line.substr(0, 1) === "$") {
                 lines.push(line)
+            } else if (line.length > 0) {
+                // Debug partial/garbage
+                debugRaw.push("  → skipped: " + line.substr(0, 30))
             }
-            basic.pause(100)  // critical: give time for next sentence to arrive
+
+            basic.pause(8)  // faster polling
         }
 
         _lastRawCycle = lines.join("\n")
+
+        // Add debug info to raw output
+        _lastRawCycle += "\n\n--- Debug raw reads ---\n" + debugRaw.join("\n")
+
         serial.redirectToUSB()
 
-        // Parse all captured lines
         for (let line of lines) {
             parseSingleLine(line)
         }
