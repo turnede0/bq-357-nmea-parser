@@ -141,21 +141,30 @@ namespace bq357 {
     //% block="GNSS status"
     //% group="GNSS" weight=70
     export function status(): string {
-        let age = control.millis() - lastValidFixMs;
-        if (age > 8000) return "indoor";
-
+        // Prefer direct sentence evidence first
         let fixGGA = extractField(lastGGA, 6);
-        if (fixGGA === "1" || fixGGA === "2") return "outdoor";
+        if (fixGGA === "1" || fixGGA === "2" || fixGGA === "4") {
+            lastValidFixMs = control.millis();  // update timestamp here too
+            return "outdoor";
+        }
 
         let fixRMC = extractField(lastRMC, 2);
-        if (fixRMC === "A") return "outdoor";
+        if (fixRMC === "A") {
+            lastValidFixMs = control.millis();
+            return "outdoor";
+        }
 
+        // Age-based fallback only if no recent sentence evidence
+        let age = control.millis() - lastValidFixMs;
+        if (age > 12000) return "indoor";  // more lenient than 8s
+
+        // Satellite fallback (only used if sentences are old)
         let total = gpsSatellites.length + bdsSatellites.length;
         let good = 0;
-        for (let s of gpsSatellites) if (s.snr >= 30) good++;
-        for (let s of bdsSatellites) if (s.snr >= 30) good++;
+        for (let s of gpsSatellites) if (s.snr >= 28) good++;  // slightly lower threshold
+        for (let s of bdsSatellites) if (s.snr >= 28) good++;
 
-        return (total >= 6 && good >= 4) ? "outdoor" : "indoor";
+        return (total >= 5 && good >= 3) ? "outdoor" : "indoor";
     }
 
     /**
