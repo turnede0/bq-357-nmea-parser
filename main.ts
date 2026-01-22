@@ -260,46 +260,28 @@ namespace bq357 {
         }
         return dump || "Empty array";
     }
-    //% block="number of GPS satellites"
+
+    //% block="number of Satellites"
     //% group="Satellites"
-    export function gpsSatelliteCount(): number {
-        return gpsSatellites.length;
+    export function SatelliteCount(isBeiDou: boolean = false): number {
+        const len = isBeiDou ?  bdsSatellites.length :   bdsSatellites.length;
+        return len;
     }
 
-    //% block="GPS satellite $index"
+    //% block="Satellite info $index"
     //% group="Satellites"
-    export function gpsSatelliteInfo(index: number): string {
-        if (index < 0 || index >= gpsSatellites.length) return "—";
-        let s = gpsSatellites[index];
+    export function SatelliteInfo(index: number, isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        
+        if (index < 0 || index >= sats.length) {
+            return "—";
+        }
+        
+        let s = sats[index];
 
-        // Use the polyfill instead of native padStart
-        let idStr   = "ID" + padStart(s.id.toString(), 2, " ");
-        let elStr   = "el:" + padStart(s.elevation.toString(), 2, " ") + "°";
-        let azStr   = "az:" + padStart(s.azimuth.toString(), 3, " ") + "°";
-        let snrStr  = padStart(s.snr.toString(), 2, " ") + "dB";
-
-        return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
+        return "ID: "+ s.id.toString()+ " El: "+s.elevation.toString()+"deg Az: "+s.azimuth.toString() +"deg SNR: "+ s.snr.toString() + "dB";
     }
 
-    //% block="number of BeiDou satellites"
-    //% group="Satellites"
-    export function bdsSatelliteCount(): number {
-        return bdsSatellites.length;
-    }
-
-    //% block="BeiDou satellite $index"
-    //% group="Satellites"
-    export function bdsSatelliteInfo(index: number): string {
-        if (index < 0 || index >= bdsSatellites.length) return "—";
-        let s = bdsSatellites[index];
-
-        let idStr   = "ID" + padStart(s.id.toString(), 2, " ");
-        let elStr   = "el:" + padStart(s.elevation.toString(), 2, " ") + "°";
-        let azStr   = "az:" + padStart(s.azimuth.toString(), 3, " ") + "°";
-        let snrStr  = padStart(s.snr.toString(), 2, " ") + "dB";
-
-        return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
-    }
     /**
      * Returns the formatted satellite ID string.
      * @param index The index in the satellites array
