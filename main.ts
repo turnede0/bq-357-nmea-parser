@@ -306,6 +306,8 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou (bdsSatellites) instead of GPS
      * @returns Formatted ID (e.g., "ID 12") or "—" if invalid
      */
+    //% block="GPS satelliteId $index"
+    //% group="Satellites"
     export function satelliteId(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
@@ -319,11 +321,20 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted elevation (e.g., "el:65°") or "—" if invalid
      */
+    //% block="GPS satellite Elevation $index"
+    //% group="Satellites"
     export function satelliteElevation(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
-        if (index < 0 || index >= sats.length) return "—";
+        if (!sats || index < 0 || index >= sats.length) return "—";
+        
         const el = sats[index].elevation;
-        return "el:" + padStart(el.toString(), 2, " ") + "°";
+        if (el === undefined || el === null || isNaN(el)) {
+            return "el:--°";  // Fallback for invalid elevation
+        }
+        
+        const elStr = el.toString();
+        const padded = padStart(elStr, 2, " ");
+        return "el:" + padded + "°";
     }
 
     /**
@@ -332,11 +343,20 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted azimuth (e.g., "az:220°") or "—" if invalid
      */
+    //% block="GPS satellite Azimuth $index"
+    //% group="Satellites"
     export function satelliteAzimuth(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
-        if (index < 0 || index >= sats.length) return "—";
+        if (!sats || index < 0 || index >= sats.length) return "—";
+        
         const az = sats[index].azimuth;
-        return "az:" + padStart(az.toString(), 3, " ") + "°";
+        if (az === undefined || az === null || isNaN(az)) {
+            return "az:---°";  // Fallback for invalid azimuth
+        }
+        
+        const azStr = az.toString();
+        const padded = padStart(azStr, 3, " ");
+        return "az:" + padded + "°";
     }
 
     /**
@@ -345,6 +365,8 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted SNR (e.g., "38dB") or "—" if invalid
      */
+    //% block="GPS satellite SNR $index"
+    //% group="Satellites"
     export function satelliteSnr(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
@@ -401,17 +423,44 @@ namespace bq357 {
         gpsSatellites = [];
         bdsSatellites = [];
     }
+    // ────────────────────────────────────────────────
+    // Robust padStart polyfill for MakeCode runtime
+    // ────────────────────────────────────────────────
     function padStart(str: string, targetLength: number, padChar: string = " "): string {
-    if (str.length >= targetLength) {
-        return str;
+        // Handle null/undefined input
+        if (str === undefined || str === null) {
+            str = "0";
+        }
+        
+        // Convert to string if not already
+        str = String(str);
+        
+        // Handle invalid arguments
+        if (targetLength <= 0) {
+            return str;
+        }
+        
+        if (padChar === undefined || padChar === null) {
+            padChar = " ";
+        }
+        padChar = String(padChar);
+        
+        if (str.length >= targetLength) {
+            return str;
+        }
+        
+        const paddingNeeded = targetLength - str.length;
+        let padding = "";
+        
+        // Build padding efficiently
+        while (padding.length < paddingNeeded) {
+            if (padding.length + padChar.length <= paddingNeeded) {
+                padding += padChar;
+            } else {
+                padding += padChar.slice(0, paddingNeeded - padding.length);
+            }
+        }
+        
+        return padding + str;
     }
-    const paddingNeeded = targetLength - str.length;
-    let padding = "";
-    while (padding.length < paddingNeeded) {
-        padding += padChar;
-    }
-    // Trim excess padding if padChar is longer than needed
-    padding = padding.slice(0, paddingNeeded);
-    return padding + str;
-}
 }
