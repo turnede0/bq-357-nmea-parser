@@ -261,14 +261,14 @@ namespace bq357 {
         return dump || "Empty array";
     }
 
-    //% block="number of Satellites"
+    //% block="number of Satellites | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteCount(isBeiDou: boolean = false): number {
         const len = isBeiDou ?  bdsSatellites.length :   bdsSatellites.length;
         return len;
     }
 
-    //% block="Satellite info $index"
+    //% block="Satellite info $index | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteInfo(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
@@ -288,7 +288,7 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou (bdsSatellites) instead of GPS
      * @returns Formatted ID (e.g., "ID 12") or "—" if invalid
      */
-    //% block="GPS satelliteId $index"
+    //% block="GPS satelliteId $index | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteId(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
@@ -303,7 +303,7 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted elevation (e.g., "el:65°") or "—" if invalid
      */
-    //% block="GPS satellite Elevation $index"
+    //% block="GPS satellite Elevation $index | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteElevation(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
@@ -318,7 +318,7 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted azimuth (e.g., "az:220°") or "—" if invalid
      */
-    //% block="GPS satellite Azimuth $index"
+    //% block="GPS satellite Azimuth $index | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteAzimuth(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
@@ -333,7 +333,7 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted SNR (e.g., "38dB") or "—" if invalid
      */
-    //% block="GPS satellite SNR $index"
+    //% block="GPS satellite SNR $index | BeiDou $isBeiDou""
     //% group="Satellites"
     export function satelliteSnr(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
