@@ -433,7 +433,7 @@ namespace bq357 {
         }
         
         // Convert to string if not already
-        str = String(str);
+        //str = String(str);
         
         // Handle invalid arguments
         if (targetLength <= 0) {
@@ -443,7 +443,7 @@ namespace bq357 {
         if (padChar === undefined || padChar === null) {
             padChar = " ";
         }
-        padChar = String(padChar);
+        //padChar = String(padChar);
         
         if (str.length >= targetLength) {
             return str;
