@@ -290,7 +290,57 @@ namespace bq357 {
 
         return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
     }
+    /**
+     * Returns the formatted satellite ID string.
+     * @param index The index in the satellites array
+     * @param isBeiDou Whether to use BeiDou (bdsSatellites) instead of GPS
+     * @returns Formatted ID (e.g., "ID 12") or "—" if invalid
+     */
+    export function satelliteId(index: number, isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        if (index < 0 || index >= sats.length) return "—";
+        const id = sats[index].id;
+        return "ID" + padStart(id.toString(), 2, " ");
+    }
 
+    /**
+     * Returns the formatted elevation string.
+     * @param index The index in the satellites array
+     * @param isBeiDou Whether to use BeiDou array
+     * @returns Formatted elevation (e.g., "el:65°") or "—" if invalid
+     */
+    export function satelliteElevation(index: number, isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        if (index < 0 || index >= sats.length) return "—";
+        const el = sats[index].elevation;
+        return "el:" + padStart(el.toString(), 2, " ") + "°";
+    }
+
+    /**
+     * Returns the formatted azimuth string.
+     * @param index The index in the satellites array
+     * @param isBeiDou Whether to use BeiDou array
+     * @returns Formatted azimuth (e.g., "az:220°") or "—" if invalid
+     */
+    export function satelliteAzimuth(index: number, isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        if (index < 0 || index >= sats.length) return "—";
+        const az = sats[index].azimuth;
+        return "az:" + padStart(az.toString(), 3, " ") + "°";
+    }
+
+    /**
+     * Returns the formatted SNR string.
+     * @param index The index in the satellites array
+     * @param isBeiDou Whether to use BeiDou array
+     * @returns Formatted SNR (e.g., "38dB") or "—" if invalid
+     */
+    export function satelliteSnr(index: number, isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        if (index < 0 || index >= sats.length) return "—";
+        const snr = sats[index].snr;
+        return padStart(snr.toString(), 2, " ") + "dB";
+    }
     // -------------------------------------------------------------------------
     // Raw NMEA sentences (last received)
     // -------------------------------------------------------------------------
