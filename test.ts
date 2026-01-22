@@ -18,27 +18,26 @@ basic.forever(function () {
     serial.writeLine("Longitude    : " + bq357.longitude())
     serial.writeLine("Speed        : " + bq357.speedKmh() + " km/h")
     // Raw NMEA sentences (useful for debugging / verification)
-    serial.writeLine("")
-    serial.writeLine("Raw GGA: " + (bq357.rawGGA() || "(none)"))
-    serial.writeLine("Raw RMC: " + (bq357.rawRMC() || "(none)"))
-    serial.writeLine("Raw VTG: " + (bq357.rawVTG() || "(none)"))
-    serial.writeLine("Raw GSA: " + (bq357.rawGSA() || "(none)"))
-    serial.writeLine("Raw GSV (last): " + (bq357.rawGSV() || "(none)"))
-    
+    // serial.writeLine("")
+    // serial.writeLine("Raw GGA: " + (bq357.rawGGA() || "(none)"))
+    // serial.writeLine("Raw RMC: " + (bq357.rawRMC() || "(none)"))
+    // serial.writeLine("Raw VTG: " + (bq357.rawVTG() || "(none)"))
+    // serial.writeLine("Raw GSA: " + (bq357.rawGSA() || "(none)"))
+    // serial.writeLine("Raw GSV (last): " + (bq357.rawGSV() || "(none)"))
     nGps = bq357.satelliteCount(false)
     serial.writeLine("GPS satellites : " + nGps)
     if (nGps > 0) {
         for (let i = 0; i <= Math.min(6, nGps) - 1; i++) {
-            serial.writeLine("  " + bq357.satelliteInfo(i,false))
+            serial.writeLine("  " + bq357.satelliteInfo(i, false))
         }
     }
     nBds = bq357.satelliteCount(true)
     serial.writeLine("BeiDou satellites : " + nBds)
     if (nBds > 0) {
         for (let j = 0; j <= Math.min(6, nBds) - 1; j++) {
-            serial.writeLine("  " + bq357.satelliteInfo(j,true))
+            serial.writeLine("  " + bq357.satelliteInfo(j, true))
         }
     }
     serial.writeLine("")
     basic.pause(800)
-})// 在這裡測試；當此封包作為擴充功能時，將不會編譯此內容。
+})
