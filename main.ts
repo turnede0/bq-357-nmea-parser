@@ -312,7 +312,7 @@ namespace bq357 {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const id = sats[index].id;
-        return "ID" + padStart(id.toString(), 2, " ");
+        return id.toString();
     }
 
     /**
@@ -325,16 +325,9 @@ namespace bq357 {
     //% group="Satellites"
     export function satelliteElevation(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
-        if (!sats || index < 0 || index >= sats.length) return "—";
-        
+        if (index < 0 || index >= sats.length) return "—";
         const el = sats[index].elevation;
-        if (el === undefined || el === null || isNaN(el)) {
-            return "el:--°";  // Fallback for invalid elevation
-        }
-        
-        const elStr = el.toString();
-        const padded = padStart(elStr, 2, " ");
-        return "el:" + padded + "°";
+        return el.toString();
     }
 
     /**
@@ -347,16 +340,9 @@ namespace bq357 {
     //% group="Satellites"
     export function satelliteAzimuth(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
-        if (!sats || index < 0 || index >= sats.length) return "—";
-        
+        if (index < 0 || index >= sats.length) return "—";
         const az = sats[index].azimuth;
-        if (az === undefined || az === null || isNaN(az)) {
-            return "az:---°";  // Fallback for invalid azimuth
-        }
-        
-        const azStr = az.toString();
-        const padded = padStart(azStr, 3, " ");
-        return "az:" + padded + "°";
+        return az.toString();
     }
 
     /**
@@ -371,7 +357,7 @@ namespace bq357 {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const snr = sats[index].snr;
-        return padStart(snr.toString(), 2, " ") + "dB";
+        return snr.toString();
     }
     // -------------------------------------------------------------------------
     // Raw NMEA sentences (last received)
