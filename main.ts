@@ -263,14 +263,14 @@ namespace bq357 {
 
     //% block="number of Satellites"
     //% group="Satellites"
-    export function SatelliteCount(isBeiDou: boolean = false): number {
+    export function satelliteCount(isBeiDou: boolean = false): number {
         const len = isBeiDou ?  bdsSatellites.length :   bdsSatellites.length;
         return len;
     }
 
     //% block="Satellite info $index"
     //% group="Satellites"
-    export function SatelliteInfo(index: number, isBeiDou: boolean = false): string {
+    export function satelliteInfo(index: number, isBeiDou: boolean = false): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         
         if (index < 0 || index >= sats.length) {
