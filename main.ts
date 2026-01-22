@@ -249,7 +249,17 @@ namespace bq357 {
     // -------------------------------------------------------------------------
     // Satellite information
     // -------------------------------------------------------------------------
-
+    //% block="debugDumpSatellites"
+    //% group="Satellites"
+    export function debugDumpSatellites(isBeiDou: boolean = false): string {
+        const sats = isBeiDou ? bdsSatellites : gpsSatellites;
+        let dump = "";
+        for (let i = 0; i < sats.length; i++) {
+            const s = sats[i];
+            dump += "Index " + i + ": ID=" + s.id + ", el=" + s.elevation + ", az=" + s.azimuth + ", snr=" + s.snr + "\n";
+        }
+        return dump || "Empty array";
+    }
     //% block="number of GPS satellites"
     //% group="Satellites"
     export function gpsSatelliteCount(): number {
