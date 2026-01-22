@@ -261,13 +261,13 @@ namespace bq357 {
     export function gpsSatelliteInfo(index: number): string {
         if (index < 0 || index >= gpsSatellites.length) return "—";
         let s = gpsSatellites[index];
-        
-        // Pad fields to fixed widths for alignment in terminal
-        let idStr   = "ID" + s.id.toString().padStart(2, " ");
-        let elStr   = "el:" + s.elevation.toString().padStart(2, " ") + "°";
-        let azStr   = "az:" + s.azimuth.toString().padStart(3, " ") + "°";
-        let snrStr  = s.snr.toString().padStart(2, " ") + "dB";
-        
+
+        // Use the polyfill instead of native padStart
+        let idStr   = "ID" + padStart(s.id.toString(), 2, " ");
+        let elStr   = "el:" + padStart(s.elevation.toString(), 2, " ") + "°";
+        let azStr   = "az:" + padStart(s.azimuth.toString(), 3, " ") + "°";
+        let snrStr  = padStart(s.snr.toString(), 2, " ") + "dB";
+
         return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
     }
 
@@ -335,4 +335,17 @@ namespace bq357 {
         gpsSatellites = [];
         bdsSatellites = [];
     }
+    function padStart(str: string, targetLength: number, padChar: string = " "): string {
+    if (str.length >= targetLength) {
+        return str;
+    }
+    const paddingNeeded = targetLength - str.length;
+    let padding = "";
+    while (padding.length < paddingNeeded) {
+        padding += padChar;
+    }
+    // Trim excess padding if padChar is longer than needed
+    padding = padding.slice(0, paddingNeeded);
+    return padding + str;
+}
 }
