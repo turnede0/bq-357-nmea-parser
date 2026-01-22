@@ -99,14 +99,14 @@ namespace bq357 {
             let azRaw = parts[idx++];
             let snrRaw = parts[idx++];
 
-            if (!idRaw || !snrRaw || snrRaw.trim() === "") continue;
+            if (!idRaw) continue;  // Changed: Only skip if no ID; allow empty SNR
 
             let id = parseInt(idRaw);
             let elv = parseInt(elvRaw) || 0;
             let az = parseInt(azRaw) || 0;
-            let snr = parseInt(snrRaw) || 0;
+            let snr = parseInt(snrRaw) || 0;  // Changed: Default to 0 if empty or invalid
 
-            if (id > 0 && snr > 0) {
+            if (id > 0) {  // Changed: Remove '&& snr > 0' to include low/zero SNR satellites
                 let sat: Satellite = { id: id, elevation: elv, azimuth: az, snr: snr };
 
                 let pos = -1;
@@ -282,7 +282,13 @@ namespace bq357 {
     export function bdsSatelliteInfo(index: number): string {
         if (index < 0 || index >= bdsSatellites.length) return "—";
         let s = bdsSatellites[index];
-        return "ID" + s.id + " el:" + s.elevation + "° az:" + s.azimuth + "° " + s.snr + "dB";
+
+        let idStr   = "ID" + padStart(s.id.toString(), 2, " ");
+        let elStr   = "el:" + padStart(s.elevation.toString(), 2, " ") + "°";
+        let azStr   = "az:" + padStart(s.azimuth.toString(), 3, " ") + "°";
+        let snrStr  = padStart(s.snr.toString(), 2, " ") + "dB";
+
+        return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
     }
 
     // -------------------------------------------------------------------------
