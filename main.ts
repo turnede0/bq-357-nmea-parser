@@ -261,7 +261,14 @@ namespace bq357 {
     export function gpsSatelliteInfo(index: number): string {
         if (index < 0 || index >= gpsSatellites.length) return "—";
         let s = gpsSatellites[index];
-        return "ID" + s.id + " el:" + s.elevation + "° az:" + s.azimuth + "° " + s.snr + "dB";
+        
+        // Pad fields to fixed widths for alignment in terminal
+        let idStr   = "ID" + s.id.toString().padStart(2, " ");
+        let elStr   = "el:" + s.elevation.toString().padStart(2, " ") + "°";
+        let azStr   = "az:" + s.azimuth.toString().padStart(3, " ") + "°";
+        let snrStr  = s.snr.toString().padStart(2, " ") + "dB";
+        
+        return `${idStr}  ${elStr}  ${azStr}  ${snrStr}`;
     }
 
     //% block="number of BeiDou satellites"
