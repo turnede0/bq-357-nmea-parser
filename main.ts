@@ -123,7 +123,7 @@ namespace bq357 {
                     satellites.push(sat);
                 }
             }
-        }./.
+        }
 
         // Limit list size (memory safety on micro:bit)
         if (satellites.length > 32) {
