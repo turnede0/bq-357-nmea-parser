@@ -249,9 +249,10 @@ namespace bq357 {
     // -------------------------------------------------------------------------
     // Satellite information
     // -------------------------------------------------------------------------
-    //% block="debugDumpSatellites"
+    //% block="debugDumpSatellites $isBeiDou"
     //% group="Satellites"
-    export function debugDumpSatellites(isBeiDou: boolean = false): string {
+    //% advanced=true
+    export function debugDumpSatellites(isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         let dump = "";
         for (let i = 0; i < sats.length; i++) {
@@ -261,16 +262,16 @@ namespace bq357 {
         return dump || "Empty array";
     }
 
-    //% block="number of Satellites | BeiDou $isBeiDou""
+    //% block="number of Beidou Satellites $isBeiDou""
     //% group="Satellites"
-    export function satelliteCount(isBeiDou: boolean = false): number {
+    export function satelliteCount(isBeiDou: boolean = true): number {
         const len = isBeiDou ?  bdsSatellites.length :   bdsSatellites.length;
         return len;
     }
 
-    //% block="Satellite info $index | BeiDou $isBeiDou""
+    //% block="Beidou Satellite info $index $isBeiDou""
     //% group="Satellites"
-    export function satelliteInfo(index: number, isBeiDou: boolean = false): string {
+    export function satelliteInfo(index: number, isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         
         if (index < 0 || index >= sats.length) {
@@ -283,14 +284,14 @@ namespace bq357 {
     }
 
     /**
-     * Returns the formatted satellite ID string.
+     * Returns the formatted satellite PRN string.
      * @param index The index in the satellites array
      * @param isBeiDou Whether to use BeiDou (bdsSatellites) instead of GPS
-     * @returns Formatted ID (e.g., "ID 12") or "—" if invalid
+     * @returns Formatted PRN (e.g., "ID 12") or "—" if invalid
      */
-    //% block="GPS satelliteId $index | BeiDou $isBeiDou""
+    //% block="Beidou satellitePRN $index $isBeiDou""
     //% group="Satellites"
-    export function satelliteId(index: number, isBeiDou: boolean = false): string {
+    export function satelliteId(index: number, isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const id = sats[index].id;
@@ -298,14 +299,14 @@ namespace bq357 {
     }
 
     /**
-     * Returns the formatted elevation string.
+     * Returns the formatted altitude string.
      * @param index The index in the satellites array
      * @param isBeiDou Whether to use BeiDou array
-     * @returns Formatted elevation (e.g., "el:65°") or "—" if invalid
+     * @returns Formatted altitude (e.g., "el:65°") or "—" if invalid
      */
-    //% block="GPS satellite Elevation $index | BeiDou $isBeiDou""
+    //% block="Beidou satellite Altitude $index $isBeiDou""
     //% group="Satellites"
-    export function satelliteElevation(index: number, isBeiDou: boolean = false): string {
+    export function satelliteElevation(index: number, isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const el = sats[index].elevation;
@@ -318,9 +319,9 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted azimuth (e.g., "az:220°") or "—" if invalid
      */
-    //% block="GPS satellite Azimuth $index | BeiDou $isBeiDou""
+    //% block="Beidou satellite Azimuth $index $isBeiDou""
     //% group="Satellites"
-    export function satelliteAzimuth(index: number, isBeiDou: boolean = false): string {
+    export function satelliteAzimuth(index: number, isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const az = sats[index].azimuth;
@@ -333,9 +334,9 @@ namespace bq357 {
      * @param isBeiDou Whether to use BeiDou array
      * @returns Formatted SNR (e.g., "38dB") or "—" if invalid
      */
-    //% block="GPS satellite SNR $index | BeiDou $isBeiDou""
+    //% block="Beidou satellite SNR $index $isBeiDou""
     //% group="Satellites"
-    export function satelliteSnr(index: number, isBeiDou: boolean = false): string {
+    export function satelliteSnr(index: number, isBeiDou: boolean = true): string {
         const sats = isBeiDou ? bdsSatellites : gpsSatellites;
         if (index < 0 || index >= sats.length) return "—";
         const snr = sats[index].snr;
@@ -347,30 +348,35 @@ namespace bq357 {
 
     //% block="raw GGA"
     //% group="Raw NMEA" weight=60
+    //% advanced=true
     export function rawGGA(): string {
         return lastGGA || "";
     }
 
     //% block="raw RMC"
     //% group="Raw NMEA" weight=59
+    //% advanced=true
     export function rawRMC(): string {
         return lastRMC || "";
     }
 
     //% block="raw VTG"
     //% group="Raw NMEA" weight=58
+    //% advanced=true
     export function rawVTG(): string {
         return lastVTG || "";
     }
 
     //% block="raw GSA (last)"
     //% group="Raw NMEA" weight=57
+    //% advanced=true
     export function rawGSA(): string {
         return lastGSA || "";
     }
 
     //% block="raw GSV (last received)"
     //% group="Raw NMEA" weight=56
+    //% advanced=true
     export function rawGSV(): string {
         return lastGSV || "";
     }
