@@ -30,7 +30,7 @@ namespace bq357 {
     //% block="use GNSS serial P0 RX P1 TX baud $baud"
     //% group="GNSS" weight=100
     export function useGnssSerial(baud: number = 9600): void {
-        serial.redirect(SerialPin.P0, SerialPin.P1, baud);
+        serial.redirect(SerialPin.P4, SerialPin.P5, baud);
         isGnssSerial = true;
         basic.pause(50);
     }
@@ -123,7 +123,7 @@ namespace bq357 {
                     satellites.push(sat);
                 }
             }
-        }
+        }./.
 
         // Limit list size (memory safety on micro:bit)
         if (satellites.length > 32) {
