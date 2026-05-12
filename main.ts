@@ -27,7 +27,7 @@ namespace bq357 {
     /**
      * Switch serial to GNSS module pins (P0 = RX ← module TX, P1 = TX → module RX)
      */
-    //% block="use GNSS serial P0 RX P1 TX baud $baud"
+    //% block="use GNSS serial P4 RX P5 TX baud $baud"
     //% group="GNSS" weight=100
     export function useGnssSerial(baud: number = 9600): void {
         serial.redirect(SerialPin.P4, SerialPin.P5, baud);
